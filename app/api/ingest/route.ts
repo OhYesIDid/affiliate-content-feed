@@ -20,7 +20,9 @@ export async function POST(request: NextRequest) {
     
     console.log(`Rate limits - Mistral: ${mistralRemaining}/${MISTRAL_RATE_LIMIT.MAX_REQUESTS}, OpenAI: ${openaiRemaining}/${OPENAI_RATE_LIMIT.MAX_REQUESTS}`);
     
-    processedCount = await fetchAndProcessFeeds();
+    const result = await fetchAndProcessFeeds();
+    processedCount = result.processed;
+    errorCount = result.errors.length;
     message = `Successfully processed ${processedCount} new articles`;
     
     // Log successful ingestion
