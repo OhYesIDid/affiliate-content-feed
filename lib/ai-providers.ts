@@ -199,7 +199,6 @@ export const summarizeContent = async (content: string): Promise<string> => {
             maxTokens: 150,
           });
           
-          console.log('Generated summary using mistral');
           const responseContent = result.choices[0]?.message?.content;
           const contentString = extractMistralContent(responseContent);
           return contentString || 'Summary unavailable';
@@ -207,44 +206,34 @@ export const summarizeContent = async (content: string): Promise<string> => {
           console.error('Mistral API error:', error);
           throw error;
         }
-      }
-      
-      // Try OpenAI as fallback
-      if (rateLimiter.isAllowed(OPENAI_KEY, OPENAI_RATE_LIMIT.MAX_REQUESTS, OPENAI_RATE_LIMIT.WINDOW_MS)) {
+      } else {
+        // Fallback to OpenAI
         try {
           const result = await openai.chat.completions.create({
             model: 'gpt-3.5-turbo',
             messages: [
               {
+                role: 'system',
+                content: 'You are a helpful assistant that creates concise, engaging summaries of articles. Focus on the key points and main takeaways.'
+              },
+              {
                 role: 'user',
-                content: `Summarize this content in 2-3 sentences, maintaining key information:\n\n${content}`
+                content: `Please summarize this article in 2-3 sentences:\n\n${content}`
               }
             ],
             max_tokens: 150,
+            temperature: 0.7,
           });
-          
-          console.log('Generated summary using openai');
+
           return result.choices[0]?.message?.content || 'Summary unavailable';
         } catch (error) {
           console.error('OpenAI API error:', error);
           throw error;
         }
       }
-      
-      // If both are rate limited, wait and retry
-      if (attempt < maxRetries - 1) {
-        await exponentialBackoff(attempt);
-        continue;
-      }
-      
-      throw new Error('All AI providers are rate limited');
-      
     } catch (error) {
-      if (attempt === maxRetries - 1) {
-        console.error('Error summarizing content:', error);
-        return 'Summary unavailable due to rate limits';
-      }
-      // Continue to next attempt
+      console.error('Error summarizing content:', error);
+      throw error;
     }
   }
   

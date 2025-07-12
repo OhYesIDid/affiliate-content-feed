@@ -19,10 +19,10 @@ export const TABLES = {
 // Helper functions for database operations
 export const db = {
   // Articles
-  async getArticles(filters?: any, sort: string = 'created_at', order: 'desc' | 'asc' = 'desc') {
+  async getArticles(filters?: any, sort: string = 'created_at', order: 'desc' | 'asc' = 'desc', limit?: number) {
     let query = supabase
       .from(TABLES.ARTICLES)
-      .select('*')
+      .select('id, title, summary, url, affiliate_url, image_url, source, category, tags, published_at, created_at, likes_count, bookmarks_count')
       .order(sort, { ascending: order === 'asc' });
 
     if (filters?.category) {
@@ -36,6 +36,11 @@ export const db = {
     }
     if (filters?.tags && filters.tags.length > 0) {
       query = query.overlaps('tags', filters.tags);
+    }
+
+    // Add limit for better performance
+    if (limit) {
+      query = query.limit(limit);
     }
 
     const { data, error } = await query;

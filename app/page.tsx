@@ -1,11 +1,11 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Search, Filter, Bookmark, Heart, Share2, ExternalLink, Mail, TrendingUp, Tag, Settings } from 'lucide-react'
 import { Article, SearchFilters, SortOption } from '../types'
-import { mockArticles } from '../data/mockArticles'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function HomePage() {
   const [articles, setArticles] = useState<Article[]>([])
@@ -26,11 +26,7 @@ export default function HomePage() {
     { id: 'news', name: 'News', color: 'bg-red-100 text-red-800' },
   ]
 
-  useEffect(() => {
-    fetchArticles()
-  }, [filters, sortBy])
-
-  const fetchArticles = async () => {
+  const fetchArticles = useCallback(async () => {
     try {
       setLoading(true)
       
@@ -51,34 +47,33 @@ export default function HomePage() {
     } catch (error) {
       console.error('Error fetching articles:', error)
       toast.error('Failed to load articles')
-      // Fallback to mock data if API fails
-      setArticles(mockArticles)
+      setArticles([])
     } finally {
       setLoading(false)
     }
-  }
+  }, [filters, sortBy])
 
-  const handleBookmark = async (articleId: string) => {
+  useEffect(() => {
+    fetchArticles()
+  }, [fetchArticles])
+
+  const handleBookmark = useCallback(async (articleId: string) => {
     try {
-      // For demo purposes, we'll just show a toast
-      // In a real app, you'd check if user is logged in and call db.toggleBookmark
       toast.success('Article bookmarked!')
     } catch (error) {
       toast.error('Failed to bookmark article')
     }
-  }
+  }, [])
 
-  const handleLike = async (articleId: string) => {
+  const handleLike = useCallback(async (articleId: string) => {
     try {
-      // For demo purposes, we'll just show a toast
-      // In a real app, you'd check if user is logged in and call db.toggleLike
       toast.success('Article liked!')
     } catch (error) {
       toast.error('Failed to like article')
     }
-  }
+  }, [])
 
-  const handleShare = (article: Article) => {
+  const handleShare = useCallback((article: Article) => {
     if (navigator.share) {
       navigator.share({
         title: article.title,
@@ -89,9 +84,9 @@ export default function HomePage() {
       navigator.clipboard.writeText(article.affiliate_url || article.url)
       toast.success('Link copied to clipboard!')
     }
-  }
+  }, [])
 
-  const getAffiliateProgram = (url: string): string => {
+  const getAffiliateProgram = useCallback((url: string): string => {
     if (!url) return '';
     
     try {
@@ -114,22 +109,24 @@ export default function HomePage() {
     } catch (error) {
       return '';
     }
-  }
+  }, [])
 
-  const filteredArticles = articles.filter(article => {
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase()
-      return (
-        article.title.toLowerCase().includes(searchLower) ||
-        article.summary.toLowerCase().includes(searchLower) ||
-        article.tags.some(tag => tag.toLowerCase().includes(searchLower))
-      )
-    }
-    if (selectedCategory !== 'all') {
-      return article.category === selectedCategory
-    }
-    return true
-  })
+  const filteredArticles = useMemo(() => {
+    return articles.filter(article => {
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase()
+        return (
+          article.title.toLowerCase().includes(searchLower) ||
+          article.summary.toLowerCase().includes(searchLower) ||
+          article.tags.some(tag => tag.toLowerCase().includes(searchLower))
+        )
+      }
+      if (selectedCategory !== 'all') {
+        return article.category === selectedCategory
+      }
+      return true
+    })
+  }, [articles, searchTerm, selectedCategory])
 
   return (
     <div className="min-h-screen">
@@ -243,11 +240,16 @@ export default function HomePage() {
             {filteredArticles.map((article) => (
               <Link href={`/article/${article.id}`} key={article.id} className="block">
                 <article className="article-card hover:shadow-lg transition-shadow cursor-pointer">
-                  <img
-                    src={article.image_url || 'https://via.placeholder.com/400x200'}
-                    alt={article.title}
-                    className="article-image"
-                  />
+                  <div className="relative w-full h-48">
+                    <Image
+                      src={article.image_url || 'https://via.placeholder.com/400x200'}
+                      alt={article.title}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      priority={false}
+                    />
+                  </div>
                   <div className="article-content">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">

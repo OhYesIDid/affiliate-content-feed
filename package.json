@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "analyze": "ANALYZE=true npm run build",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf .next out",
+    "performance": "npm run build && npm run start"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.56.0",
