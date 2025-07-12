@@ -42,36 +42,59 @@ export const rssProduction = {
                 continue;
               }
 
-              // Process content with AI (with error handling)
+              // Process content with AI - all must succeed for article to be created
               const content = item.contentSnippet || item.content || '';
-              let aiSummary = '';
-              let tags: string[] = [];
-              let category = feed.category;
-              let rewrittenContent = content;
+              let aiSummary: string;
+              let tags: string[];
+              let category: string;
+              let rewrittenContent: string;
+
+              // Only process with AI if we have sufficient content
+              if (content.length < 50) {
+                console.log(`Skipping "${item.title}" - insufficient content (${content.length} chars)`);
+                continue;
+              }
 
               try {
-                // Only process with AI if we have content
-                if (content.length > 50) {
-                  aiSummary = await ai.summarizeContent(content, item.title || '');
-                  tags = await ai.generateTags(content, item.title || '');
-                  category = await ai.categorizeContent(content, item.title || '');
-                  
-                  // Rewrite content for SEO
-                  try {
-                    const seoRewrite = await ai.rewriteForSEO(content, item.title || '');
-                    if (seoRewrite) {
-                      rewrittenContent = seoRewrite;
-                    }
-                  } catch (rewriteError) {
-                    console.error(`Content rewrite failed for ${item.title}:`, rewriteError);
-                    // Keep original content if rewrite fails
-                  }
+                aiSummary = await ai.summarizeContent(content, item.title || '');
+                if (!aiSummary || aiSummary.length < 20) {
+                  throw new Error('Summary generation failed');
                 }
               } catch (aiError) {
-                console.error(`AI processing failed for ${item.title}:`, aiError);
-                // Fallback to basic processing
-                aiSummary = item.contentSnippet || '';
-                tags = [feed.category, feed.source];
+                console.error(`AI summary failed for ${item.title}:`, aiError);
+                continue; // Skip this article
+              }
+
+              try {
+                tags = await ai.generateTags(content, item.title || '');
+                if (!tags || tags.length === 0) {
+                  throw new Error('Tag generation failed');
+                }
+              } catch (aiError) {
+                console.error(`AI tags failed for ${item.title}:`, aiError);
+                continue; // Skip this article
+              }
+
+              try {
+                category = await ai.categorizeContent(content, item.title || '');
+                if (!category || category === 'General') {
+                  throw new Error('Category generation failed');
+                }
+              } catch (aiError) {
+                console.error(`AI categorization failed for ${item.title}:`, aiError);
+                continue; // Skip this article
+              }
+
+              // Rewrite content for SEO - this is critical
+              try {
+                const seoRewrite = await ai.rewriteForSEO(content, item.title || '');
+                if (!seoRewrite || seoRewrite.length < 100) {
+                  throw new Error('Content rewrite failed or too short');
+                }
+                rewrittenContent = seoRewrite;
+              } catch (rewriteError) {
+                console.error(`Content rewrite failed for ${item.title}:`, rewriteError);
+                continue; // Skip this article
               }
 
               // Create affiliate URL

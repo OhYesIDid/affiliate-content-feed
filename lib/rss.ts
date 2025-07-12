@@ -97,31 +97,43 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
             // Generate affiliate link
             const affiliateUrl = await affiliate.createAffiliateUrl(item.link);
 
-            // AI processing with rate limiting
-            let summary = 'Summary unavailable';
-            let tags: string[] = [];
-            let category = 'news';
-            let rewrittenContent = item.content || item.contentSnippet || '';
+            // AI processing - all must succeed for article to be created
+            let summary: string;
+            let tags: string[];
+            let category: string;
+            let rewrittenContent: string;
 
             try {
               summary = await summarizeContent(item.content || item.contentSnippet || title);
+              if (!summary || summary === 'Summary unavailable') {
+                throw new Error('Summary generation failed');
+              }
             } catch (error) {
               errors.push(`Failed to summarize "${title}": ${error}`);
+              continue; // Skip this article
             }
 
             try {
               tags = await generateTags(item.content || item.contentSnippet || title);
+              if (!tags || tags.length === 0) {
+                throw new Error('Tag generation failed');
+              }
             } catch (error) {
               errors.push(`Failed to generate tags for "${title}": ${error}`);
+              continue; // Skip this article
             }
 
             try {
               category = await categorizeContent(item.content || item.contentSnippet || title);
+              if (!category || category === 'General') {
+                throw new Error('Category generation failed');
+              }
             } catch (error) {
               errors.push(`Failed to categorize "${title}": ${error}`);
+              continue; // Skip this article
             }
 
-            // Rewrite article content
+            // Rewrite article content - this is critical
             try {
               const rewriteResult = await rewriteArticle(
                 item.content || item.contentSnippet || title,
@@ -129,13 +141,15 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
                 feed.name
               );
               rewrittenContent = rewriteResult.content;
+              if (!rewrittenContent || rewrittenContent.length < 100) {
+                throw new Error('Content rewrite failed or too short');
+              }
             } catch (error) {
               errors.push(`Failed to rewrite "${title}": ${error}`);
-              // Keep original content if rewrite fails
-              rewrittenContent = item.content || item.contentSnippet || '';
+              continue; // Skip this article
             }
 
-            // Create article
+            // Only create article if all AI processing succeeded
             const article = {
               title,
               summary,
@@ -154,6 +168,7 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
 
             await db.createArticle(article);
             processed++;
+            console.log(`✅ Successfully processed: ${title}`);
           } catch (error) {
             errors.push(`Failed to process article "${item.title}": ${error}`);
           }
