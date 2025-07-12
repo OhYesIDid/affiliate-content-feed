@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { RefreshCw, TrendingUp, Database, Activity, Settings, BarChart3, Users, FileText } from 'lucide-react'
+import { RefreshCw, TrendingUp, Database, Activity, Settings, BarChart3, Users, FileText, LogOut, User } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useRouter } from 'next/navigation'
 
 interface SystemStats {
   totalArticles: number
@@ -22,15 +23,37 @@ interface SystemStats {
   }
 }
 
+interface AdminUser {
+  id: string
+  username: string
+  role: string
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<SystemStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [ingesting, setIngesting] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [user, setUser] = useState<AdminUser | null>(null)
+  const [loggingOut, setLoggingOut] = useState(false)
+  const router = useRouter()
 
   useEffect(() => {
     fetchStats()
+    fetchUser()
   }, [])
+
+  const fetchUser = async () => {
+    try {
+      const response = await fetch('/api/admin/user')
+      if (response.ok) {
+        const userData = await response.json()
+        setUser(userData.user)
+      }
+    } catch (error) {
+      console.error('Error fetching user:', error)
+    }
+  }
 
   const fetchStats = async () => {
     try {
@@ -94,6 +117,28 @@ export default function AdminDashboard() {
     toast.success('Stats refreshed!')
   }
 
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true)
+      
+      const response = await fetch('/api/admin/logout', {
+        method: 'POST',
+      })
+      
+      if (response.ok) {
+        toast.success('Logged out successfully')
+        router.push('/admin/login')
+      } else {
+        toast.error('Logout failed')
+      }
+    } catch (error) {
+      console.error('Logout error:', error)
+      toast.error('An error occurred during logout')
+    } finally {
+      setLoggingOut(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-secondary-50 flex items-center justify-center">
@@ -119,6 +164,12 @@ export default function AdminDashboard() {
             </div>
             
             <div className="flex items-center space-x-4">
+              {user && (
+                <div className="flex items-center space-x-2 text-sm text-secondary-600">
+                  <User className="w-4 h-4" />
+                  <span>Welcome, {user.username}</span>
+                </div>
+              )}
               <button 
                 onClick={handleRefreshStats}
                 disabled={refreshing}
@@ -127,7 +178,15 @@ export default function AdminDashboard() {
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                 <span>Refresh</span>
               </button>
-              <a href="/" className="btn-secondary">
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="btn-secondary flex items-center space-x-2"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>{loggingOut ? 'Logging out...' : 'Logout'}</span>
+              </button>
+              <a href="/" className="btn-outline">
                 Back to Site
               </a>
             </div>

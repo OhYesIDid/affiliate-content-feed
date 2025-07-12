@@ -183,10 +183,6 @@ export default function HomePage() {
                 <RefreshCw className={`w-4 h-4 ${ingesting ? 'animate-spin' : ''}`} />
                 <span>{ingesting ? 'Ingesting...' : 'Ingest Content'}</span>
               </button>
-              <a href="/admin" className="btn-outline flex items-center space-x-2">
-                <Settings className="w-4 h-4" />
-                <span>Admin</span>
-              </a>
               <button className="btn-outline flex items-center space-x-2">
                 <Mail className="w-4 h-4" />
                 <span>Subscribe</span>
