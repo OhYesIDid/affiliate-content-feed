@@ -1,14 +1,4 @@
 {
-  "crons": [
-    {
-      "path": "/api/ingest",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/digest",
-      "schedule": "0 9 * * 1"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",

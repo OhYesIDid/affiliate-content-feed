@@ -1,18 +1,22 @@
-name: Complete Automation (GitHub Actions Only)
+name: Manual Automation Trigger
 
 on:
-  schedule:
-    # Content ingestion every 4 hours during business hours
-    - cron: '0 8,12,16,20 * * *'
-    # Email digest weekly on Monday at 9 AM
-    - cron: '0 9 * * 1'
-    # Social media bots twice daily (morning and evening)
-    - cron: '0 9,18 * * *'
-  workflow_dispatch: # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Which action to run'
+        required: true
+        default: 'ingest'
+        type: choice
+        options:
+        - ingest
+        - digest
+        - social-bots
 
 jobs:
-  content-ingestion:
+  manual-ingest:
     runs-on: ubuntu-latest
+    if: github.event.inputs.action == 'ingest'
     
     steps:
     - name: Checkout code
@@ -38,9 +42,9 @@ jobs:
       run: |
         curl -X POST https://your-vercel-domain.vercel.app/api/ingest
 
-  email-digest:
+  manual-digest:
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' && github.event.schedule == '0 9 * * 1'
+    if: github.event.inputs.action == 'digest'
     
     steps:
     - name: Checkout code
@@ -66,8 +70,9 @@ jobs:
       run: |
         curl -X POST https://your-vercel-domain.vercel.app/api/digest
 
-  social-media-bots:
+  manual-social-bots:
     runs-on: ubuntu-latest
+    if: github.event.inputs.action == 'social-bots'
     
     steps:
     - name: Checkout code
