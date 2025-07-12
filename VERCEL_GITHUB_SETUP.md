@@ -1,7 +1,24 @@
 # Vercel + GitHub Actions Setup Guide
 
 ## Overview
-This guide will help you deploy your affiliate content feed app using Vercel for hosting and GitHub Actions for automation.
+This guide will help you deploy your affiliate content feed app using Vercel for hosting and GitHub Actions for automation, with a smart dual-workflow approach that respects Vercel's 2-cron-job limit.
+
+## 🎯 Smart Automation Strategy
+
+### **Dual Workflow Approach:**
+1. **`vercel-deploy.yml`**: Uses only 2 cron jobs (Vercel-compatible)
+   - Content ingestion every 6 hours
+   - Social media bots once daily
+
+2. **`frequent-automation.yml`**: Unlimited automation via GitHub Actions
+   - Content ingestion every 2 hours during business hours
+   - Social media bots twice daily
+
+### **Benefits:**
+✅ **Vercel Compliance**: Stays within 2-cron-job limit
+✅ **Unlimited Automation**: GitHub Actions provides additional automation
+✅ **Cost Effective**: Uses free tiers of both platforms
+✅ **Reliable**: Redundant automation ensures content is always fresh
 
 ## Step 1: Deploy to Vercel
 
@@ -117,12 +134,14 @@ Add your social media API credentials:
 | `REDDIT_USERNAME` | Your Reddit username |
 | `REDDIT_PASSWORD` | Your Reddit password |
 
-## Step 4: Update GitHub Actions Workflow
+## Step 4: Update GitHub Actions Workflows
 
 ### 4.1 Update the Vercel Domain
 1. **Open `.github/workflows/vercel-deploy.yml`**
 2. **Replace `your-vercel-domain.vercel.app`** with your actual Vercel domain
-3. **Commit and push the changes**
+3. **Open `.github/workflows/frequent-automation.yml`**
+4. **Replace `your-vercel-domain.vercel.app`** with your actual Vercel domain
+5. **Commit and push the changes**
 
 ## Step 5: Test the Setup
 
@@ -139,6 +158,13 @@ Add your social media API credentials:
 4. **Select "main" branch**
 5. **Click "Run workflow"**
 6. **Check that both content ingestion and social media bots run**
+
+### 5.3 Test Frequent Automation
+1. **Go to "Actions" tab**
+2. **Click on "Frequent Automation (GitHub Actions Only)"**
+3. **Click "Run workflow"**
+4. **Select "main" branch**
+5. **Click "Run workflow"**
 
 ## Step 6: Connect Your GoDaddy Domain
 
@@ -165,7 +191,9 @@ Add your social media API credentials:
 
 ### 7.1 Check GitHub Actions
 - **Go to "Actions" tab** regularly
-- **Monitor automation runs**
+- **Monitor both workflows**:
+  - "Deploy to Vercel and Run Automation"
+  - "Frequent Automation (GitHub Actions Only)"
 - **Check for any failures**
 
 ### 7.2 Check Vercel Analytics
@@ -177,6 +205,21 @@ Add your social media API credentials:
 - **Monitor your database**
 - **Check for new articles**
 - **Verify affiliate link tracking**
+
+## 🚀 Automation Schedule
+
+### **Vercel-Compatible Workflow** (2 cron jobs):
+- **Content Ingestion**: Every 6 hours (4 times/day)
+- **Social Media Bots**: Once daily at 12 PM
+
+### **GitHub Actions Workflow** (Unlimited):
+- **Content Ingestion**: Every 2 hours during business hours (8 AM, 10 AM, 12 PM, 2 PM, 4 PM, 6 PM, 8 PM)
+- **Social Media Bots**: Twice daily (9 AM and 6 PM)
+
+### **Total Automation**:
+- **Content Ingestion**: Up to 11 times per day
+- **Social Media Bots**: Up to 3 times per day
+- **Deployments**: On every code push
 
 ## Benefits of This Setup
 
@@ -192,10 +235,11 @@ Add your social media API credentials:
 - Reliable automation
 - Easy monitoring
 
-✅ **Cost Effective:**
-- Vercel free tier: Generous limits
-- GitHub Actions free tier: 2,000 minutes/month
-- No additional hosting costs
+✅ **Smart Strategy:**
+- Respects Vercel's 2-cron-job limit
+- Provides unlimited automation via GitHub Actions
+- Redundant automation ensures reliability
+- Cost effective using free tiers
 
 ## Troubleshooting
 
@@ -229,4 +273,4 @@ Add your social media API credentials:
 4. **Optimize affiliate link generation**
 5. **Add analytics tracking**
 
-Your affiliate content feed is now fully automated and deployed! 🚀 
+Your affiliate content feed is now fully automated and deployed with smart automation that respects platform limits! 🚀 

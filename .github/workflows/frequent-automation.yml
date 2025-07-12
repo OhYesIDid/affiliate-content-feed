@@ -1,36 +1,17 @@
-name: Deploy to Vercel and Run Automation
+name: Frequent Automation (GitHub Actions Only)
 
 on:
-  push:
-    branches: [ main ]
   schedule:
-    # Only 2 cron jobs for Vercel compatibility
-    # 1. Content ingestion every 6 hours (4 times per day)
-    - cron: '0 */6 * * *'
-    # 2. Social media bots once daily
-    - cron: '0 12 * * *'
+    # More frequent automation using GitHub Actions (unlimited)
+    # Content ingestion every 2 hours during business hours
+    - cron: '0 8,10,12,14,16,18,20 * * *'
+    # Social media bots twice daily (morning and evening)
+    - cron: '0 9,18 * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Deploy to Vercel
-      uses: amondnet/vercel-action@v25
-      with:
-        vercel-token: ${{ secrets.VERCEL_TOKEN }}
-        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-        vercel-args: '--prod'
-
   content-ingestion:
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     
     steps:
     - name: Checkout code
@@ -58,7 +39,6 @@ jobs:
 
   social-media-bots:
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     
     steps:
     - name: Checkout code
