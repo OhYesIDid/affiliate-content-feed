@@ -187,6 +187,7 @@ export const summarizeContent = async (content: string): Promise<string> => {
     try {
       // Try Mistral first
       if (rateLimiter.isAllowed(MISTRAL_KEY, MISTRAL_RATE_LIMIT.MAX_REQUESTS, MISTRAL_RATE_LIMIT.WINDOW_MS)) {
+        console.log(`Using Mistral for summarizeContent (attempt ${attempt + 1})`);
         try {
           const result = await mistral.chat.complete({
             model: 'mistral-large-latest',
@@ -204,10 +205,15 @@ export const summarizeContent = async (content: string): Promise<string> => {
           return contentString || 'Summary unavailable';
         } catch (error) {
           console.error('Mistral API error:', error);
-          throw error;
+          // Fall through to OpenAI
         }
       } else {
-        // Fallback to OpenAI
+        console.log(`Mistral rate limited. Remaining requests: ${rateLimiter.getRemaining(MISTRAL_KEY, MISTRAL_RATE_LIMIT.MAX_REQUESTS)}`);
+      }
+      
+      // Fallback to OpenAI
+      if (rateLimiter.isAllowed(OPENAI_KEY, OPENAI_RATE_LIMIT.MAX_REQUESTS, OPENAI_RATE_LIMIT.WINDOW_MS)) {
+        console.log(`Using OpenAI for summarizeContent (attempt ${attempt + 1})`);
         try {
           const result = await openai.chat.completions.create({
             model: 'gpt-3.5-turbo',
@@ -230,10 +236,21 @@ export const summarizeContent = async (content: string): Promise<string> => {
           console.error('OpenAI API error:', error);
           throw error;
         }
+      } else {
+        console.log(`OpenAI rate limited. Remaining requests: ${rateLimiter.getRemaining(OPENAI_KEY, OPENAI_RATE_LIMIT.MAX_REQUESTS)}`);
+      }
+      
+      // If both are rate limited, wait and retry
+      if (attempt < maxRetries - 1) {
+        await exponentialBackoff(attempt);
+        continue;
       }
     } catch (error) {
       console.error('Error summarizing content:', error);
-      throw error;
+      if (attempt < maxRetries - 1) {
+        await exponentialBackoff(attempt);
+        continue;
+      }
     }
   }
   
