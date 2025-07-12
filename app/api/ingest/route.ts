@@ -1,39 +1,77 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { rss, RSS_FEEDS } from '../../../lib/rss'
+import { NextRequest, NextResponse } from 'next/server';
+import { fetchAndProcessFeeds, RSS_FEEDS } from '@/lib/rss';
+import { rateLimiter, MISTRAL_RATE_LIMIT, OPENAI_RATE_LIMIT } from '@/lib/rate-limiter';
 
 export async function POST(request: NextRequest) {
   try {
-    // In a real app, you'd add authentication here
-    // const { user } = await auth(request)
-    // if (!user || user.role !== 'admin') {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    // }
-
-    console.log('Starting content ingestion...')
+    console.log('Starting content ingestion...');
     
-    // Fetch and process RSS feeds
-    const articles = await rss.fetchAndProcessFeeds()
+    // Check current rate limits
+    const mistralRemaining = rateLimiter.getRemaining('mistral-api', MISTRAL_RATE_LIMIT.MAX_REQUESTS);
+    const openaiRemaining = rateLimiter.getRemaining('openai-api', OPENAI_RATE_LIMIT.MAX_REQUESTS);
     
-    console.log(`Successfully processed ${articles.length} articles`)
+    console.log(`Rate limits - Mistral: ${mistralRemaining}/${MISTRAL_RATE_LIMIT.MAX_REQUESTS}, OpenAI: ${openaiRemaining}/${OPENAI_RATE_LIMIT.MAX_REQUESTS}`);
+    
+    const processedCount = await fetchAndProcessFeeds();
     
     return NextResponse.json({
       success: true,
-      message: `Processed ${articles.length} new articles`,
-      articles: articles.length
-    })
-    
+      processedCount,
+      rateLimits: {
+        mistral: {
+          remaining: mistralRemaining,
+          maxRequests: MISTRAL_RATE_LIMIT.MAX_REQUESTS,
+          windowMs: MISTRAL_RATE_LIMIT.WINDOW_MS
+        },
+        openai: {
+          remaining: openaiRemaining,
+          maxRequests: OPENAI_RATE_LIMIT.MAX_REQUESTS,
+          windowMs: OPENAI_RATE_LIMIT.WINDOW_MS
+        }
+      }
+    });
   } catch (error) {
-    console.error('Error in content ingestion:', error)
+    console.error('Error in ingest API:', error);
     return NextResponse.json(
-      { error: 'Failed to ingest content' },
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        rateLimits: {
+          mistral: {
+            remaining: rateLimiter.getRemaining('mistral-api', MISTRAL_RATE_LIMIT.MAX_REQUESTS),
+            maxRequests: MISTRAL_RATE_LIMIT.MAX_REQUESTS,
+            windowMs: MISTRAL_RATE_LIMIT.WINDOW_MS
+          },
+          openai: {
+            remaining: rateLimiter.getRemaining('openai-api', OPENAI_RATE_LIMIT.MAX_REQUESTS),
+            maxRequests: OPENAI_RATE_LIMIT.MAX_REQUESTS,
+            windowMs: OPENAI_RATE_LIMIT.WINDOW_MS
+          }
+        }
+      },
       { status: 500 }
-    )
+    );
   }
 }
 
 export async function GET() {
+  const mistralRemaining = rateLimiter.getRemaining('mistral-api', MISTRAL_RATE_LIMIT.MAX_REQUESTS);
+  const openaiRemaining = rateLimiter.getRemaining('openai-api', OPENAI_RATE_LIMIT.MAX_REQUESTS);
+  
   return NextResponse.json({
     message: 'Content ingestion endpoint. Use POST to trigger ingestion.',
-    feeds: RSS_FEEDS.length
-  })
+    feeds: RSS_FEEDS.length,
+    rateLimits: {
+      mistral: {
+        remaining: mistralRemaining,
+        maxRequests: MISTRAL_RATE_LIMIT.MAX_REQUESTS,
+        windowMs: MISTRAL_RATE_LIMIT.WINDOW_MS
+      },
+      openai: {
+        remaining: openaiRemaining,
+        maxRequests: OPENAI_RATE_LIMIT.MAX_REQUESTS,
+        windowMs: OPENAI_RATE_LIMIT.WINDOW_MS
+      }
+    }
+  });
 } 
