@@ -49,6 +49,7 @@ export default function AdminDashboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [user, setUser] = useState<AdminUser | null>(null)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [stats, setStats] = useState<SystemStats | null>(null)
   const router = useRouter()
 
   useEffect(() => {
