@@ -10,18 +10,6 @@ interface SystemStats {
   totalArticles: number
   totalSources: number
   lastIngestion: string
-  rateLimits: {
-    mistral: {
-      remaining: number
-      maxRequests: number
-      timeUntilReset: number
-    }
-    openai: {
-      remaining: number
-      maxRequests: number
-      timeUntilReset: number
-    }
-  }
   ingestionLogs: IngestionLogEntry[]
 }
 
@@ -92,13 +80,14 @@ export default function AdminDashboard() {
     try {
       setLoading(true)
       
-      // Fetch rate limits
-      const rateLimitResponse = await fetch('/api/rate-limits')
-      const rateLimits = await rateLimitResponse.json()
-      
       // Fetch basic stats (you can expand this later)
       const statsResponse = await fetch('/api/articles')
       const articlesData = await statsResponse.json()
+      
+      // Fetch RSS feeds count
+      const feedsResponse = await fetch('/api/admin/rss-feeds')
+      const feedsData = await feedsResponse.json()
+      const totalSources = feedsData.success ? feedsData.total : 0
       
       // Fetch ingestion logs
       const logsResponse = await fetch('/api/admin/ingestion-logs?limit=10')
@@ -110,9 +99,8 @@ export default function AdminDashboard() {
       
       setStats({
         totalArticles: articlesData.total || 0,
-        totalSources: 6, // Hardcoded for now based on RSS_FEEDS
+        totalSources,
         lastIngestion: lastIngestion || new Date().toISOString(), // Use latest log or current time
-        rateLimits,
         ingestionLogs
       })
     } catch (error) {
@@ -241,7 +229,7 @@ export default function AdminDashboard() {
         {performanceStats && (
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Performance Monitoring</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {performanceStats.ai && (
                 <div className="bg-white p-4 rounded-lg shadow">
                   <h3 className="text-sm font-medium text-gray-500">AI Processing</h3>
@@ -274,20 +262,12 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               )}
-              
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-sm font-medium text-gray-500">Recent Errors</h3>
-                <div className="mt-2">
-                  <p className="text-2xl font-bold text-gray-900">{performanceStats.recentErrors?.length || 0}</p>
-                  <p className="text-sm text-gray-600">Last 5 Errors</p>
-                </div>
-              </div>
             </div>
           </div>
         )}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="card cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/admin/articles')}>
             <div className="flex items-center">
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -301,7 +281,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/admin/rss-feeds')}>
             <div className="flex items-center">
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <Database className="w-6 h-6 text-green-600" />
@@ -309,34 +289,7 @@ export default function AdminDashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-secondary-600">RSS Sources</p>
                 <p className="text-2xl font-bold text-secondary-900">{stats?.totalSources}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Activity className="w-6 h-6 text-purple-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-secondary-600">Mistral API</p>
-                <p className="text-2xl font-bold text-secondary-900">
-                  {stats?.rateLimits.mistral.remaining}/{stats?.rateLimits.mistral.maxRequests}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <BarChart3 className="w-6 h-6 text-orange-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-secondary-600">OpenAI API</p>
-                <p className="text-2xl font-bold text-secondary-900">
-                  {stats?.rateLimits.openai.remaining}/{stats?.rateLimits.openai.maxRequests}
-                </p>
+                <p className="text-xs text-secondary-500 mt-1">Click to view all RSS feeds</p>
               </div>
             </div>
           </div>
@@ -346,8 +299,17 @@ export default function AdminDashboard() {
         <div className="card mb-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-secondary-900">Content Ingestion</h2>
-            <div className="text-sm text-secondary-600">
-              Last ingestion: {stats?.lastIngestion ? new Date(stats.lastIngestion).toLocaleString() : 'Never'}
+            <div className="flex items-center space-x-4">
+              <div className="text-sm text-secondary-600">
+                Last ingestion: {stats?.lastIngestion ? new Date(stats.lastIngestion).toLocaleString() : 'Never'}
+              </div>
+              <button
+                onClick={() => router.push('/admin/filter-config')}
+                className="btn-outline flex items-center space-x-2"
+              >
+                <Settings className="w-4 h-4" />
+                <span>Filter Configuration</span>
+              </button>
             </div>
           </div>
           
@@ -403,59 +365,6 @@ export default function AdminDashboard() {
                   <p className="text-sm">Run your first ingestion to see logs here.</p>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-
-        {/* Rate Limits Section */}
-        <div className="card">
-          <h2 className="text-xl font-semibold text-secondary-900 mb-6">API Rate Limits</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-secondary-900">Mistral AI</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-secondary-600">Remaining Requests:</span>
-                  <span className="font-medium">{stats?.rateLimits.mistral.remaining}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-secondary-600">Max Requests:</span>
-                  <span className="font-medium">{stats?.rateLimits.mistral.maxRequests}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-secondary-600">Time Until Reset:</span>
-                  <span className="font-medium">
-                    {stats?.rateLimits.mistral.timeUntilReset ? 
-                      `${Math.ceil(stats.rateLimits.mistral.timeUntilReset / 1000)}s` : 
-                      'N/A'
-                    }
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-secondary-900">OpenAI</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-secondary-600">Remaining Requests:</span>
-                  <span className="font-medium">{stats?.rateLimits.openai.remaining}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-secondary-600">Max Requests:</span>
-                  <span className="font-medium">{stats?.rateLimits.openai.maxRequests}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-secondary-600">Time Until Reset:</span>
-                  <span className="font-medium">
-                    {stats?.rateLimits.openai.timeUntilReset ? 
-                      `${Math.ceil(stats.rateLimits.openai.timeUntilReset / 1000)}s` : 
-                      'N/A'
-                    }
-                  </span>
-                </div>
-              </div>
             </div>
           </div>
         </div>

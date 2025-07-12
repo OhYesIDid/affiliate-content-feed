@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { ArrowLeft, Heart, Bookmark, Share2, ExternalLink, ShoppingCart, Tag } from 'lucide-react'
 import Link from 'next/link'
+import Header from '../../components/Header'
 
 interface Article {
   id: string
@@ -42,8 +43,21 @@ export default function ArticlePage() {
       }
     }
 
+    const checkLikeStatus = async () => {
+      try {
+        const response = await fetch(`/api/articles/${params.id}/like`)
+        if (response.ok) {
+          const data = await response.json()
+          setLiked(data.liked)
+        }
+      } catch (error) {
+        console.error('Error checking like status:', error)
+      }
+    }
+
     if (params.id) {
       fetchArticle()
+      checkLikeStatus()
     }
   }, [params.id])
 
@@ -55,8 +69,9 @@ export default function ArticlePage() {
         method: 'POST'
       })
       if (response.ok) {
-        setLiked(!liked)
-        setArticle(prev => prev ? { ...prev, likes_count: prev.likes_count + (liked ? -1 : 1) } : null)
+        const data = await response.json()
+        setLiked(data.liked)
+        setArticle(prev => prev ? { ...prev, likes_count: prev.likes_count + (data.liked ? 1 : -1) } : null)
       }
     } catch (error) {
       console.error('Error liking article:', error)
@@ -164,13 +179,18 @@ export default function ArticlePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center text-gray-600 hover:text-gray-900">
+      <Header 
+        showBackLink={false}
+        showSubscribe={false}
+      />
+      
+      {/* Secondary Navigation with Back Link and Article Actions */}
+      <div className="bg-gray-50 border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-3">
+            <Link href="/" className="flex items-center text-secondary-600 hover:text-secondary-900 transition-colors">
               <ArrowLeft className="w-5 h-5 mr-2" />
-              Back to Articles
+              <span className="text-sm font-medium">Back</span>
             </Link>
             <div className="flex items-center space-x-4">
               <button
@@ -201,7 +221,7 @@ export default function ArticlePage() {
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Article Content */}
       <main className="max-w-4xl mx-auto px-4 py-8">
@@ -212,8 +232,6 @@ export default function ArticlePage() {
               <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
                 {article.category}
               </span>
-              <span>•</span>
-              <span>{article.source}</span>
               <span>•</span>
               <span>{new Date(article.created_at).toLocaleDateString()}</span>
             </div>
@@ -291,15 +309,6 @@ export default function ArticlePage() {
             {/* Action Buttons */}
             <div className="mt-8 pt-8 border-t">
               <div className="flex flex-col sm:flex-row gap-4">
-                <a
-                  href={article.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  <span>Read Original Article</span>
-                </a>
                 <button
                   onClick={handleShare}
                   className="flex items-center justify-center space-x-2 bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors font-medium"

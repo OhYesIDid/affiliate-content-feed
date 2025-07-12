@@ -1,6 +1,6 @@
 import Parser from 'rss-parser';
 import { db } from './supabase';
-import { ai } from './openai';
+import { summarizeContent, generateTags, categorizeContent, rewriteArticle } from './ai-providers';
 
 const parser = new Parser({
   timeout: 10000, // 10 second timeout
@@ -49,15 +49,11 @@ export const rssProduction = {
               let category: string;
               let rewrittenContent: string;
 
-              // Only process with AI if we have sufficient content
-              if (content.length < 50) {
-                console.log(`Skipping "${item.title}" - insufficient content (${content.length} chars)`);
-                continue;
-              }
+              // Process content with AI
 
               try {
-                aiSummary = await ai.summarizeContent(content, item.title || '');
-                if (!aiSummary || aiSummary.length < 20) {
+                aiSummary = await summarizeContent(content);
+                if (!aiSummary) {
                   throw new Error('Summary generation failed');
                 }
               } catch (aiError) {
@@ -66,7 +62,7 @@ export const rssProduction = {
               }
 
               try {
-                tags = await ai.generateTags(content, item.title || '');
+                tags = await generateTags(content);
                 if (!tags || tags.length === 0) {
                   throw new Error('Tag generation failed');
                 }
@@ -76,7 +72,7 @@ export const rssProduction = {
               }
 
               try {
-                category = await ai.categorizeContent(content, item.title || '');
+                category = await categorizeContent(content);
                 if (!category || category === 'General') {
                   throw new Error('Category generation failed');
                 }
@@ -87,11 +83,11 @@ export const rssProduction = {
 
               // Rewrite content for SEO - this is critical
               try {
-                const seoRewrite = await ai.rewriteForSEO(content, item.title || '');
-                if (!seoRewrite || seoRewrite.length < 100) {
-                  throw new Error('Content rewrite failed or too short');
+                const rewriteResult = await rewriteArticle(content, item.title || '', feed.name);
+                if (!rewriteResult.content) {
+                  throw new Error('Content rewrite failed');
                 }
-                rewrittenContent = seoRewrite;
+                rewrittenContent = rewriteResult.content;
               } catch (rewriteError) {
                 console.error(`Content rewrite failed for ${item.title}:`, rewriteError);
                 continue; // Skip this article

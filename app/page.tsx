@@ -6,6 +6,7 @@ import { Article, SearchFilters, SortOption } from '../types'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import Image from 'next/image'
+import Header from './components/Header'
 
 export default function HomePage() {
   const [articles, setArticles] = useState<Article[]>([])
@@ -17,13 +18,13 @@ export default function HomePage() {
   const [showFilters, setShowFilters] = useState(false)
 
   const categories = [
-    { id: 'all', name: 'All', color: 'bg-secondary-100 text-secondary-800' },
-    { id: 'tech', name: 'Tech', color: 'bg-blue-100 text-blue-800' },
+    { id: 'all', name: 'All Deals', color: 'bg-secondary-100 text-secondary-800' },
+    { id: 'tech', name: 'Tech Deals', color: 'bg-blue-100 text-blue-800' },
     { id: 'finance', name: 'Finance', color: 'bg-green-100 text-green-800' },
     { id: 'business', name: 'Business', color: 'bg-purple-100 text-purple-800' },
     { id: 'lifestyle', name: 'Lifestyle', color: 'bg-pink-100 text-pink-800' },
-    { id: 'deals', name: 'Deals', color: 'bg-orange-100 text-orange-800' },
-    { id: 'news', name: 'News', color: 'bg-red-100 text-red-800' },
+    { id: 'deals', name: 'Hot Deals', color: 'bg-orange-100 text-orange-800' },
+    { id: 'news', name: 'Deal News', color: 'bg-red-100 text-red-800' },
   ]
 
   const fetchArticles = useCallback(async () => {
@@ -65,13 +66,7 @@ export default function HomePage() {
     }
   }, [])
 
-  const handleLike = useCallback(async (articleId: string) => {
-    try {
-      toast.success('Article liked!')
-    } catch (error) {
-      toast.error('Failed to like article')
-    }
-  }, [])
+
 
   const handleShare = useCallback((article: Article) => {
     if (navigator.share) {
@@ -83,31 +78,6 @@ export default function HomePage() {
     } else {
       navigator.clipboard.writeText(article.affiliate_url || article.url)
       toast.success('Link copied to clipboard!')
-    }
-  }, [])
-
-  const getAffiliateProgram = useCallback((url: string): string => {
-    if (!url) return '';
-    
-    try {
-      const urlObj = new URL(url);
-      const domain = urlObj.hostname.toLowerCase();
-      
-      if (domain.includes('amazon.com') || domain.includes('amazon.co.uk')) {
-        return 'Amazon';
-      }
-      
-      if (domain.includes('skimresources.com')) {
-        return 'Skimlinks';
-      }
-      
-      if (urlObj.searchParams.has('tag') || urlObj.searchParams.has('linkCode')) {
-        return 'Affiliate';
-      }
-      
-      return '';
-    } catch (error) {
-      return '';
     }
   }, [])
 
@@ -130,26 +100,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-secondary-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-white" />
-              </div>
-              <h1 className="text-2xl font-bold text-secondary-900">ContentFeed</h1>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <button className="btn-outline flex items-center space-x-2">
-                <Mail className="w-4 h-4" />
-                <span>Subscribe</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search and Filters */}
@@ -159,7 +110,7 @@ export default function HomePage() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search articles, tags, or sources..."
+              placeholder="Search deals, discounts, products, or categories..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="input-field pl-10"
@@ -183,17 +134,9 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* Sort and Filter Controls */}
+          {/* Sort Controls */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="btn-outline flex items-center space-x-2"
-              >
-                <Filter className="w-4 h-4" />
-                <span>Filters</span>
-              </button>
-              
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortOption)}
@@ -206,7 +149,7 @@ export default function HomePage() {
             </div>
 
             <div className="text-sm text-secondary-600">
-              {filteredArticles.length} articles found
+              {filteredArticles.length} deals found
             </div>
           </div>
         </div>
@@ -215,12 +158,17 @@ export default function HomePage() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="article-card animate-pulse">
+              <div key={i} className="article-card animate-pulse h-full flex flex-col">
                 <div className="w-full h-48 bg-secondary-200"></div>
-                <div className="p-6">
+                <div className="p-6 flex flex-col flex-1">
                   <div className="h-6 bg-secondary-200 rounded mb-2"></div>
                   <div className="h-4 bg-secondary-200 rounded mb-2"></div>
-                  <div className="h-4 bg-secondary-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-secondary-200 rounded w-3/4 mb-4"></div>
+                  <div className="h-4 bg-secondary-200 rounded w-1/2 mb-4"></div>
+                  <div className="mt-auto flex justify-between">
+                    <div className="h-4 bg-secondary-200 rounded w-16"></div>
+                    <div className="h-4 bg-secondary-200 rounded w-16"></div>
+                  </div>
                 </div>
               </div>
             ))}
@@ -230,9 +178,9 @@ export default function HomePage() {
             <div className="w-16 h-16 bg-secondary-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="w-8 h-8 text-secondary-400" />
             </div>
-            <h3 className="text-lg font-medium text-secondary-900 mb-2">No articles found</h3>
+            <h3 className="text-lg font-medium text-secondary-900 mb-2">No deals found</h3>
             <p className="text-secondary-600">
-              Try adjusting your search terms or filters
+              Try adjusting your search terms or filters to find great savings
             </p>
           </div>
         ) : (
@@ -256,14 +204,7 @@ export default function HomePage() {
                         <span className={`badge badge-${article.category === 'tech' ? 'primary' : 'secondary'}`}>
                           {article.category}
                         </span>
-                        {article.affiliate_url && article.affiliate_url !== article.url && (
-                          <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium flex items-center space-x-1">
-                            <Tag className="w-3 h-3" />
-                            <span>{getAffiliateProgram(article.affiliate_url)}</span>
-                          </span>
-                        )}
                       </div>
-                      <span className="text-xs text-secondary-500">{article.source}</span>
                     </div>
                     
                     <h2 className="article-title hover:text-primary-600 transition-colors">
@@ -272,7 +213,7 @@ export default function HomePage() {
                     
                     <p className="article-summary">{article.summary}</p>
                     
-                    <div className="flex flex-wrap mb-4">
+                    <div className="flex flex-wrap mb-4 min-h-[2rem]">
                       {article.tags.slice(0, 3).map((tag, index) => (
                         <span key={index} className="tag">
                           {tag}
@@ -282,16 +223,10 @@ export default function HomePage() {
                     
                     <div className="article-meta">
                       <div className="flex items-center space-x-4">
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault()
-                            handleLike(article.id)
-                          }}
-                          className="flex items-center space-x-1 text-secondary-500 hover:text-red-500 transition-colors"
-                        >
+                        <div className="flex items-center space-x-1 text-secondary-500">
                           <Heart className="w-4 h-4" />
                           <span>{article.likes_count}</span>
-                        </button>
+                        </div>
                         
                         <button
                           onClick={(e) => {

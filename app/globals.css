@@ -75,23 +75,23 @@ body {
   }
 
   .article-card {
-    @apply bg-white rounded-lg shadow-sm border border-secondary-200 overflow-hidden hover:shadow-md transition-shadow duration-200;
+    @apply bg-white rounded-lg shadow-sm border border-secondary-200 overflow-hidden hover:shadow-md transition-shadow duration-200 h-full flex flex-col;
   }
 
   .article-content {
-    @apply p-6;
+    @apply p-6 flex flex-col flex-1;
   }
 
   .article-title {
-    @apply text-xl font-semibold text-secondary-900 mb-2 line-clamp-2;
+    @apply text-xl font-semibold text-secondary-900 mb-2 line-clamp-2 min-h-[3rem];
   }
 
   .article-summary {
-    @apply text-secondary-600 text-sm mb-4 line-clamp-3;
+    @apply text-secondary-600 text-sm mb-4 line-clamp-3 min-h-[4.5rem] flex-1;
   }
 
   .article-meta {
-    @apply flex items-center justify-between text-xs text-secondary-500;
+    @apply flex items-center justify-between text-xs text-secondary-500 mt-auto;
   }
 
   .tag {

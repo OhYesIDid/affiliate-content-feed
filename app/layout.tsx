@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import { Analytics } from '@vercel/analytics/react'
+import Footer from './components/Footer'
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -11,21 +12,29 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'ContentFeed - AI-Powered Affiliate Content',
-  description: 'Discover curated content with AI-powered summaries and affiliate tracking.',
-  keywords: 'content, AI, affiliate, tech, finance, lifestyle, news',
-  authors: [{ name: 'ContentFeed Team' }],
+  title: 'PriceSlashPal - Smart Deals & Savings Discovery',
+  description: 'Discover the best deals, discounts, and money-saving opportunities with AI-powered content curation.',
+  keywords: 'deals, discounts, savings, affiliate, tech, finance, lifestyle, shopping',
+  authors: [{ name: 'PriceSlashPal Team' }],
   robots: 'index, follow',
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: 'any' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
   openGraph: {
-    title: 'ContentFeed - AI-Powered Affiliate Content',
-    description: 'Discover curated content with AI-powered summaries and affiliate tracking.',
+    title: 'PriceSlashPal - Smart Deals & Savings Discovery',
+    description: 'Discover the best deals, discounts, and money-saving opportunities with AI-powered content curation.',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ContentFeed - AI-Powered Affiliate Content',
-    description: 'Discover curated content with AI-powered summaries and affiliate tracking.',
+    title: 'PriceSlashPal - Smart Deals & Savings Discovery',
+    description: 'Discover the best deals, discounts, and money-saving opportunities with AI-powered content curation.',
   },
 }
 
@@ -49,6 +58,7 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         {children}
+        <Footer />
         <Toaster position="bottom-right" />
         <Analytics />
       </body>

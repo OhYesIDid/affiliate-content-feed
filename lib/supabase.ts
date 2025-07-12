@@ -171,8 +171,7 @@ export const db = {
   async getRSSFeeds() {
     const { data, error } = await supabase
       .from(TABLES.RSS_FEEDS)
-      .select('*')
-      .eq('active', true);
+      .select('*');
     
     if (error) throw error;
     return data;

@@ -27,6 +27,7 @@
     "lucide-react": "^0.294.0",
     "next": "14.0.4",
     "openai": "^4.20.0",
+    "openrouter-client": "^1.5.0",
     "postcss": "^8",
     "react": "^18",
     "react-dom": "^18",

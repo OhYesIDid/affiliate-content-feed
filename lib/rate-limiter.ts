@@ -14,6 +14,11 @@ class RateLimiter {
    * @returns true if request is allowed, false if rate limited
    */
   isAllowed(key: string, maxRequests: number, windowMs: number): boolean {
+    // If maxRequests is 0, never allow requests
+    if (maxRequests === 0) {
+      return false;
+    }
+    
     const now = Date.now();
     const entry = this.limits.get(key);
 
@@ -93,5 +98,10 @@ export const MISTRAL_RATE_LIMIT = {
 
 export const OPENAI_RATE_LIMIT = {
   MAX_REQUESTS: 0,
+  WINDOW_MS: 60 * 1000 // 1 minute
+};
+
+export const OPENROUTER_RATE_LIMIT = {
+  MAX_REQUESTS: 20,
   WINDOW_MS: 60 * 1000 // 1 minute
 }; 

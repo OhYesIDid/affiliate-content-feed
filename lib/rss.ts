@@ -5,8 +5,112 @@ import { affiliate } from './affiliate';
 import { imageService } from './image-providers';
 import { performanceMonitor, measurePerformance } from './performance';
 import { queueAI } from './queue';
+import { getCurrentConfig, ensureConfigLoaded } from './filter-config';
 
 const parser = new Parser();
+
+// Filtering functions
+const shouldProcessArticle = async (item: any, feedName: string): Promise<{ shouldProcess: boolean; reason?: string }> => {
+  const title = item.title || '';
+
+  // Pick the content field with the most words
+  const candidates = [
+    item['content:encoded'],
+    item.content,
+    item.description,
+    item.contentSnippet
+  ].filter(Boolean);
+  const content = candidates.sort((a, b) => b.split(/\s+/).length - a.split(/\s+/).length)[0] || '';
+
+  const pubDate = item.pubDate ? new Date(item.pubDate) : new Date();
+
+  // Get global filter rules (ensure config is loaded)
+  const rules = await ensureConfigLoaded();
+
+  // 1. Basic validation
+  if (!title || !item.link) {
+    return { shouldProcess: false, reason: 'Missing title or link' };
+  }
+
+  // 2. Title length filter
+  if (title.length < rules.MIN_TITLE_LENGTH || title.length > rules.MAX_TITLE_LENGTH) {
+    return { shouldProcess: false, reason: `Title length ${title.length} outside range ${rules.MIN_TITLE_LENGTH}-${rules.MAX_TITLE_LENGTH}` };
+  }
+
+  // 3. Content length filter
+  // (Word count filter removed)
+
+  // 4. Age filter
+  const ageHours = (Date.now() - pubDate.getTime()) / (1000 * 60 * 60);
+  if (ageHours > rules.MAX_AGE_HOURS) {
+    return { shouldProcess: false, reason: `Article too old (${Math.round(ageHours)} hours)` };
+  }
+
+  // 5. Exclude keyword filter
+  const lowerTitle = title.toLowerCase();
+  const lowerContent = content.toLowerCase();
+  for (const keyword of rules.EXCLUDE_KEYWORDS) {
+    const lowerKeyword = keyword.toLowerCase();
+    if (lowerTitle.includes(lowerKeyword) || lowerContent.includes(lowerKeyword)) {
+      return { shouldProcess: false, reason: `Contains excluded keyword: ${keyword}` };
+    }
+  }
+
+  // 6. Include keyword filter (at least one must be present, but only if INCLUDE_KEYWORDS is non-empty)
+  if (rules.INCLUDE_KEYWORDS.length > 0) {
+    const hasIncludeKeyword = rules.INCLUDE_KEYWORDS.some(keyword => {
+      const lowerKeyword = keyword.toLowerCase();
+      return lowerTitle.includes(lowerKeyword) || lowerContent.includes(lowerKeyword);
+    });
+
+    if (!hasIncludeKeyword) {
+      return { shouldProcess: false, reason: 'No relevant keywords found' };
+    }
+  }
+
+  // 7. Spam detection
+  for (const patternStr of rules.SPAM_INDICATORS) {
+    try {
+      const pattern = new RegExp(patternStr, 'i');
+      if (pattern.test(title)) {
+        return { shouldProcess: false, reason: 'Spam indicators detected in title' };
+      }
+    } catch (error) {
+      console.warn(`Invalid regex pattern: ${patternStr}`);
+    }
+  }
+
+  // 8. Language detection (basic English check)
+  const englishWords = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'];
+  const hasEnglishWords = englishWords.some(word =>
+    lowerTitle.includes(` ${word} `) || lowerContent.includes(` ${word} `)
+  );
+  if (!hasEnglishWords) {
+    return { shouldProcess: false, reason: 'No English words detected' };
+  }
+
+  return { shouldProcess: true };
+};
+
+// Enhanced duplicate detection
+const isDuplicateArticle = async (title: string, content: string): Promise<boolean> => {
+  try {
+    // Check for exact title match (most reliable for RSS feeds)
+    const existingByTitle = await db.getArticles({ title });
+    if (existingByTitle.length > 0) {
+      console.log(`🔍 Duplicate found by exact title match: "${title}"`);
+      return true;
+    }
+
+    // Removed similarity-based duplicate detection as it was too aggressive
+    // URL-based checking in the main loop is sufficient for RSS feeds
+    
+    return false;
+  } catch (error) {
+    console.error('Error checking for duplicates:', error);
+    return false; // Allow processing if we can't check
+  }
+};
 
 export const RSS_FEEDS = [
   {
@@ -50,17 +154,79 @@ export const RSS_FEEDS = [
     url: 'https://www.engadget.com/rss.xml',
     category: 'Technology',
     defaultImage: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e'
+  },
+  // Affiliate-focused feeds
+  {
+    name: 'Slickdeals',
+    url: 'https://slickdeals.net/newsearch.php?mode=frontpage&searcharea=deals&searchin=first&rss=1',
+    category: 'Deals',
+    defaultImage: 'https://images.unsplash.com/photo-1607082349566-187342175e2f'
+  },
+  {
+    name: 'DealNews',
+    url: 'https://www.dealnews.com/rss.xml',
+    category: 'Deals',
+    defaultImage: 'https://images.unsplash.com/photo-1607082349566-187342175e2f'
+  },
+  {
+    name: 'Woot',
+    url: 'https://www.woot.com/feed',
+    category: 'Deals',
+    defaultImage: 'https://images.unsplash.com/photo-1607082349566-187342175e2f'
+  },
+  {
+    name: 'The Wirecutter',
+    url: 'https://thewirecutter.com/feed/',
+    category: 'Reviews',
+    defaultImage: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64'
+  },
+  {
+    name: 'CNET Reviews',
+    url: 'https://www.cnet.com/rss/reviews/',
+    category: 'Reviews',
+    defaultImage: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64'
+  },
+  {
+    name: 'Tom\'s Guide',
+    url: 'https://www.tomsguide.com/feeds/all.xml',
+    category: 'Reviews',
+    defaultImage: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64'
+  },
+  {
+    name: 'Gear Patrol',
+    url: 'https://gearpatrol.com/feed/',
+    category: 'Lifestyle',
+    defaultImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f'
+  },
+  {
+    name: 'The Strategist',
+    url: 'https://nymag.com/strategist/rss.xml',
+    category: 'Lifestyle',
+    defaultImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f'
   }
 ];
 
-export async function fetchAndProcessFeeds(): Promise<{ processed: number; errors: string[] }> {
+export async function fetchAndProcessFeeds(): Promise<{ processed: number; errors: string[]; filtered: number }> {
   const startTime = Date.now();
   let processed = 0;
+  let filtered = 0;
   const errors: string[] = [];
 
   try {
+    // Get the last ingestion timestamp to only process newer articles
+    let lastIngestionTime: Date | null = null;
+    try {
+      const latestLog = await db.getLatestIngestionLog();
+      if (latestLog && latestLog.timestamp) {
+        lastIngestionTime = new Date(latestLog.timestamp);
+        console.log(`📅 Last ingestion: ${lastIngestionTime.toISOString()}`);
+      }
+    } catch (error) {
+      console.log('No previous ingestion log found, processing all articles');
+    }
+
     const feeds = await db.getRSSFeeds();
-    
+
     for (const feed of feeds) {
       try {
         const response = await fetch(feed.url);
@@ -73,25 +239,61 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
         const parser = new Parser();
         const feedData = await parser.parseString(text);
 
-        for (const item of feedData.items.slice(0, 10)) { // Limit to 10 items per feed
+        for (const item of feedData.items) { // Process all items from each feed
           try {
             const title = item.title || 'Untitled';
-            
-            // Check if article already exists
+
+            // Check if article already exists by URL
             if (!item.link) {
               errors.push(`Article "${item.title}" has no link`);
               continue;
             }
-            
+
+            // Skip articles published before the last ingestion
+            if (lastIngestionTime && item.pubDate) {
+              const articleDate = new Date(item.pubDate);
+              if (articleDate <= lastIngestionTime) {
+                console.log(`⏭️ Skipped "${title}": Published before last ingestion (${articleDate.toISOString()})`);
+                filtered++;
+                continue;
+              }
+            }
+
             const existing = await db.getArticles({ url: item.link });
             if (existing.length > 0) {
+              console.log(`🔍 Duplicate found by URL: "${title}"`);
+              continue;
+            }
+
+            // Pick the content field with the most words
+            const candidates = [
+              item['content:encoded'],
+              item.content,
+              item.description,
+              item.contentSnippet
+            ].filter(Boolean);
+            const content = candidates.sort((a, b) => b.split(/\s+/).length - a.split(/\s+/).length)[0] || '';
+
+            // Apply comprehensive filtering before AI processing
+            const filterResult = await shouldProcessArticle(item, feed.name);
+            if (!filterResult.shouldProcess) {
+              console.log(`⏭️ Skipped "${title}": ${filterResult.reason}`);
+              filtered++;
+              continue;
+            }
+
+            // Check for duplicate content
+            const isDuplicate = await isDuplicateArticle(title, content);
+            if (isDuplicate) {
+              console.log(`⏭️ Skipped duplicate: "${title}"`);
+              filtered++;
               continue;
             }
 
             // Extract image from content or use placeholder
             let imageUrl = item['media:content']?.['$']?.url || 
                           item['media:thumbnail']?.['$']?.url ||
-                          extractImageFromContent(item.content || '') ||
+                          extractImageFromContent(content) ||
                           await imageService.getRelevantImage(title, '', 'technology');
 
             // Generate affiliate link
@@ -104,7 +306,7 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
             let rewrittenContent: string;
 
             try {
-              summary = await summarizeContent(item.content || item.contentSnippet || title);
+              summary = await summarizeContent(content || title);
               if (!summary || summary === 'Summary unavailable') {
                 throw new Error('Summary generation failed');
               }
@@ -114,7 +316,7 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
             }
 
             try {
-              tags = await generateTags(item.content || item.contentSnippet || title);
+              tags = await generateTags(content || title);
               if (!tags || tags.length === 0) {
                 throw new Error('Tag generation failed');
               }
@@ -124,7 +326,7 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
             }
 
             try {
-              category = await categorizeContent(item.content || item.contentSnippet || title);
+              category = await categorizeContent(content || title);
               if (!category || category === 'General') {
                 throw new Error('Category generation failed');
               }
@@ -136,13 +338,13 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
             // Rewrite article content - this is critical
             try {
               const rewriteResult = await rewriteArticle(
-                item.content || item.contentSnippet || title,
+                content || title,
                 title,
                 feed.name
               );
               rewrittenContent = rewriteResult.content;
-              if (!rewrittenContent || rewrittenContent.length < 100) {
-                throw new Error('Content rewrite failed or too short');
+              if (!rewrittenContent) {
+                throw new Error('Content rewrite failed');
               }
             } catch (error) {
               errors.push(`Failed to rewrite "${title}": ${error}`);
@@ -185,7 +387,7 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
   }
 
   const duration = Date.now() - startTime;
-  
+
   // Log ingestion
   try {
     await db.createIngestionLog({
@@ -193,15 +395,16 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
       processedCount: processed,
       errorCount: errors.length,
       duration,
-      message: `Processed ${processed} articles with ${errors.length} errors`,
+      message: `Processed ${processed} articles, filtered ${filtered} articles, with ${errors.length} errors`,
       details: errors.length > 0 ? errors.join('; ') : undefined
     });
   } catch (logError) {
     console.error('Failed to log ingestion:', logError);
   }
 
-  return { processed, errors };
-} 
+  console.log(`📊 Ingestion Summary: ${processed} processed, ${filtered} filtered, ${errors.length} errors`);
+  return { processed, errors, filtered };
+}
 
 function extractImageFromContent(content: string): string | null {
   try {
