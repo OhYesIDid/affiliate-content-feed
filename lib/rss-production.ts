@@ -47,6 +47,7 @@ export const rssProduction = {
               let aiSummary = '';
               let tags: string[] = [];
               let category = feed.category;
+              let rewrittenContent = content;
 
               try {
                 // Only process with AI if we have content
@@ -54,6 +55,17 @@ export const rssProduction = {
                   aiSummary = await ai.summarizeContent(content, item.title || '');
                   tags = await ai.generateTags(content, item.title || '');
                   category = await ai.categorizeContent(content, item.title || '');
+                  
+                  // Rewrite content for SEO
+                  try {
+                    const seoRewrite = await ai.rewriteForSEO(content, item.title || '');
+                    if (seoRewrite) {
+                      rewrittenContent = seoRewrite;
+                    }
+                  } catch (rewriteError) {
+                    console.error(`Content rewrite failed for ${item.title}:`, rewriteError);
+                    // Keep original content if rewrite fails
+                  }
                 }
               } catch (aiError) {
                 console.error(`AI processing failed for ${item.title}:`, aiError);
@@ -73,7 +85,7 @@ export const rssProduction = {
               const article = {
                 title: item.title || '',
                 summary: aiSummary || item.contentSnippet || '',
-                content: content,
+                content: rewrittenContent,
                 url: item.link || '',
                 affiliate_url: affiliateUrl,
                 image_url: imageUrl,

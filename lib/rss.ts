@@ -101,6 +101,7 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
             let summary = 'Summary unavailable';
             let tags: string[] = [];
             let category = 'news';
+            let rewrittenContent = item.content || item.contentSnippet || '';
 
             try {
               summary = await summarizeContent(item.content || item.contentSnippet || title);
@@ -120,11 +121,25 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
               errors.push(`Failed to categorize "${title}": ${error}`);
             }
 
+            // Rewrite article content
+            try {
+              const rewriteResult = await rewriteArticle(
+                item.content || item.contentSnippet || title,
+                title,
+                feed.name
+              );
+              rewrittenContent = rewriteResult.content;
+            } catch (error) {
+              errors.push(`Failed to rewrite "${title}": ${error}`);
+              // Keep original content if rewrite fails
+              rewrittenContent = item.content || item.contentSnippet || '';
+            }
+
             // Create article
             const article = {
               title,
               summary,
-              content: item.content || item.contentSnippet || '',
+              content: rewrittenContent,
               url: item.link,
               affiliate_url: affiliateUrl,
               image_url: imageUrl,
