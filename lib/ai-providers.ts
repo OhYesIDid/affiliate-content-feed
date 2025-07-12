@@ -164,6 +164,22 @@ REWRITTEN ARTICLE:`;
   throw new Error('No AI API keys configured');
 }
 
+// Helper function to extract text content from Mistral API response
+const extractMistralContent = (responseContent: string | any[] | undefined): string => {
+  if (typeof responseContent === 'string') {
+    return responseContent;
+  } else if (Array.isArray(responseContent)) {
+    return responseContent.map(chunk => {
+      if (typeof chunk === 'string') return chunk;
+      if (chunk && typeof chunk === 'object' && 'text' in chunk) {
+        return (chunk as any).text || '';
+      }
+      return '';
+    }).join('');
+  }
+  return '';
+};
+
 export const summarizeContent = async (content: string): Promise<string> => {
   const maxRetries = 3;
   
@@ -184,7 +200,9 @@ export const summarizeContent = async (content: string): Promise<string> => {
           });
           
           console.log('Generated summary using mistral');
-          return result.choices[0]?.message?.content || 'Summary unavailable';
+          const responseContent = result.choices[0]?.message?.content;
+          const contentString = extractMistralContent(responseContent);
+          return contentString || 'Summary unavailable';
         } catch (error) {
           console.error('Mistral API error:', error);
           throw error;
@@ -252,7 +270,9 @@ export const generateTags = async (content: string): Promise<string[]> => {
             maxTokens: 100,
           });
           
-          const tags = result.choices[0]?.message?.content?.split(',').map(tag => tag.trim()) || [];
+          const responseContent = result.choices[0]?.message?.content;
+          const contentString = extractMistralContent(responseContent);
+          const tags = contentString.split(',').map((tag: string) => tag.trim()) || [];
           console.log('Generated tags using mistral');
           return tags;
         } catch (error) {
@@ -323,7 +343,9 @@ export const categorizeContent = async (content: string): Promise<string> => {
             maxTokens: 50,
           });
           
-          const category = result.choices[0]?.message?.content?.trim() || 'General';
+          const responseContent = result.choices[0]?.message?.content;
+          const contentString = extractMistralContent(responseContent);
+          const category = contentString.trim() || 'General';
           console.log('Categorized content using mistral');
           return category;
         } catch (error) {
