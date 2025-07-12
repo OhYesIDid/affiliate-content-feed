@@ -165,7 +165,7 @@ REWRITTEN ARTICLE:`;
 }
 
 // Helper function to extract text content from Mistral API response
-const extractMistralContent = (responseContent: string | any[] | undefined): string => {
+const extractMistralContent = (responseContent: string | any[] | null | undefined): string => {
   if (typeof responseContent === 'string') {
     return responseContent;
   } else if (Array.isArray(responseContent)) {
