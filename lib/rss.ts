@@ -1,8 +1,8 @@
 import Parser from 'rss-parser';
 import { db } from './supabase';
 import { rewriteArticle, summarizeContent, generateTags, categorizeContent } from './ai-providers';
-import { affiliate, generateAffiliateLink } from './affiliate';
-import { imageService, getRelevantImage } from './image-providers';
+import { affiliate } from './affiliate';
+import { imageService } from './image-providers';
 import { performanceMonitor, measurePerformance } from './performance';
 import { queueAI } from './queue';
 
@@ -87,10 +87,10 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
             let imageUrl = item['media:content']?.['$']?.url || 
                           item['media:thumbnail']?.['$']?.url ||
                           extractImageFromContent(item.content || '') ||
-                          await getRelevantImage(title, 'technology');
+                          await imageService.getRelevantImage(title, '', 'technology');
 
             // Generate affiliate link
-            const affiliateUrl = await generateAffiliateLink(item.link);
+            const affiliateUrl = await affiliate.createAffiliateUrl(item.link);
 
             // AI processing with rate limiting
             let summary = 'Summary unavailable';
