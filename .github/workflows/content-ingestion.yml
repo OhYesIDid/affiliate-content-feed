@@ -31,4 +31,4 @@ jobs:
         RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       run: |
         # Make a request to your ingestion endpoint
-        curl -X POST https://your-railway-app.railway.app/api/ingest 
+        curl -X POST https://your-production-domain.com/api/ingest 
