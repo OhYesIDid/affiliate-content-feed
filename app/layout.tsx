@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   description: 'Discover curated content with AI-powered summaries and affiliate tracking.',
   keywords: 'content, AI, affiliate, tech, finance, lifestyle, news',
   authors: [{ name: 'ContentFeed Team' }],
-  viewport: 'width=device-width, initial-scale=1',
   robots: 'index, follow',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
   openGraph: {
     title: 'ContentFeed - AI-Powered Affiliate Content',
     description: 'Discover curated content with AI-powered summaries and affiliate tracking.',
@@ -27,6 +27,11 @@ export const metadata: Metadata = {
     title: 'ContentFeed - AI-Powered Affiliate Content',
     description: 'Discover curated content with AI-powered summaries and affiliate tracking.',
   },
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({

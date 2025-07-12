@@ -78,6 +78,11 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
             const title = item.title || 'Untitled';
             
             // Check if article already exists
+            if (!item.link) {
+              errors.push(`Article "${item.title}" has no link`);
+              continue;
+            }
+            
             const existing = await db.getArticles({ url: item.link });
             if (existing.length > 0) {
               continue;

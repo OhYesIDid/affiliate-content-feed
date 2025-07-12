@@ -31,6 +31,11 @@ export const rssProduction = {
           for (const item of feedData.items.slice(0, 10)) {
             try {
               // Check if article already exists
+              if (!item.link) {
+                console.log(`Article "${item.title}" has no link, skipping`);
+                continue;
+              }
+              
               const existing = await db.getArticles({ url: item.link });
               if (existing && existing.length > 0) {
                 console.log(`Article already exists: ${item.title}`);
