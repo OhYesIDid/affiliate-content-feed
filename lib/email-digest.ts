@@ -138,8 +138,13 @@ export const emailDigest = {
         throw error;
       }
 
-      console.log(`✅ Email sent to ${email}:`, data.id);
-      return data;
+      if (data) {
+        console.log(`✅ Email sent to ${email}:`, data.id);
+        return data;
+      } else {
+        console.log(`✅ Email sent to ${email}: (no ID returned)`);
+        return null;
+      }
 
     } catch (error) {
       console.error(`❌ Error sending email to ${email}:`, error);
@@ -207,12 +212,17 @@ export const emailDigest = {
         throw error;
       }
 
-      console.log(`✅ Welcome email sent to ${email}:`, data.id);
-      return data;
+      if (data) {
+        console.log(`✅ Welcome email sent to ${email}:`, data.id);
+        return data;
+      } else {
+        console.log(`✅ Welcome email sent to ${email}: (no ID returned)`);
+        return null;
+      }
 
     } catch (error) {
       console.error(`❌ Error sending welcome email to ${email}:`, error);
       throw error;
     }
   }
-}; 
+};
