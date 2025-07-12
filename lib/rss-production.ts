@@ -61,7 +61,7 @@ export const rssProduction = {
               const affiliateUrl = await this.createAffiliateUrl(item.link || '');
 
               // Extract image from content or use placeholder
-              const imageUrl = this.extractImageFromContent(item.content) || 
+              const imageUrl = this.extractImageFromContent(item.content || '') || 
                              item.enclosure?.url || 
                              this.getRandomImage();
 
@@ -153,11 +153,11 @@ export const rssProduction = {
 
   getRandomImage(): string {
     const images = [
-      'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=800&h=400&fit=crop',
-      'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800&h=400&fit=crop',
-      'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=400&fit=crop',
-      'https://images.unsplash.com/photo-1551434678-e076c223a692?w=800&h=400&fit=crop',
-      'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=400&fit=crop',
+      'https://images.unsplash.com/photo-1518709268805-4e9042af2176',
+      'https://images.unsplash.com/photo-1485827404703-89b55fcc595e',
+      'https://images.unsplash.com/photo-1551288049-bebda4e38f71',
+      'https://images.unsplash.com/photo-1551434678-e076c223a692',
+      'https://images.unsplash.com/photo-1460925895917-afdab827c52f',
     ];
     
     return images[Math.floor(Math.random() * images.length)];
