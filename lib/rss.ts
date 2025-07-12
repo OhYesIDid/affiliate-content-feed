@@ -1,7 +1,10 @@
 import Parser from 'rss-parser';
-import { createClient } from '@supabase/supabase-js';
-import { summarizeContent, generateTags, categorizeContent } from './ai-providers';
+import { db } from './supabase';
+import { rewriteArticle, summarizeContent, generateTags, categorizeContent } from './ai-providers';
 import { affiliate } from './affiliate';
+import { imageService } from './image-providers';
+import { performanceMonitor, measurePerformance } from './performance';
+import { queueAI } from './queue';
 
 const parser = new Parser();
 
@@ -50,117 +53,117 @@ export const RSS_FEEDS = [
   }
 ];
 
-export async function fetchAndProcessFeeds() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+export async function fetchAndProcessFeeds(): Promise<{ processed: number; errors: string[] }> {
+  const errors: string[] = [];
+  let processed = 0;
 
-  const parser = new Parser();
-  let processedCount = 0;
+  console.log('Starting content ingestion...');
 
   for (const feed of RSS_FEEDS) {
     try {
       console.log(`Fetching feed: ${feed.name}`);
-      const feedData = await parser.parseURL(feed.url);
       
-      // Limit to 12 articles per feed
-      const articles = feedData.items.slice(0, 12);
-      
-      for (const item of articles) {
+      const feedData = await measurePerformance('rss_fetch', async () => {
+        const response = await fetch(feed.url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.text();
+      });
+
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(feedData, 'text/xml');
+      const items = xmlDoc.querySelectorAll('item');
+
+      for (const item of Array.from(items)) {
         try {
+          const title = item.querySelector('title')?.textContent?.trim() || '';
+          const link = item.querySelector('link')?.textContent?.trim() || '';
+          const description = item.querySelector('description')?.textContent?.trim() || '';
+          const pubDate = item.querySelector('pubDate')?.textContent?.trim() || '';
+          const content = item.querySelector('content\\:encoded')?.textContent?.trim() || description;
+
           // Check if article already exists
-          const { data: existing } = await supabase
+          const existingArticle = await db
             .from('articles')
             .select('id')
-            .eq('title', item.title)
+            .eq('url', link)
             .single();
 
-          if (existing) {
-            console.log(`Article already exists: ${item.title}`);
+          if (existingArticle.data) {
+            console.log(`Article already exists: ${title}`);
             continue;
           }
 
-          // Extract image from content or use default
-          let imageUrl = feed.defaultImage;
-          if (item.content) {
-            const imgMatch = item.content.match(/<img[^>]+src="([^"]+)"/i);
-            if (imgMatch) {
-              imageUrl = imgMatch[1];
+          // Extract image from content
+          const imageMatch = content.match(/<img[^>]+src="([^"]+)"/i);
+          let imageUrl = imageMatch ? imageMatch[1] : '';
+
+          // If no image found, try to get one from image providers
+          if (!imageUrl) {
+            try {
+              imageUrl = await measurePerformance('image_fetch', async () => {
+                return await imageService.getRelevantImage(title, content, '');
+              });
+            } catch (error) {
+              console.error('Error fetching image:', error);
+              imageUrl = '';
             }
-          } else if (item['media:content']) {
-            imageUrl = item['media:content']['$'].url;
-          } else if (item.enclosure && item.enclosure.type?.startsWith('image/')) {
-            imageUrl = item.enclosure.url;
           }
+
+          // Queue AI operations instead of processing immediately
+          const aiOperations = await Promise.allSettled([
+            queueAI.summarize(content, 2),
+            queueAI.tag(content, 1),
+            queueAI.categorize(content, 1),
+            queueAI.rewrite(content, title, feed.name, 3)
+          ]);
 
           // Generate affiliate link
-          const affiliateUrl = await affiliate.createAffiliateUrl(item.link || '');
+          const affiliateUrl = await affiliate.createAffiliateUrl(link);
 
-          // AI processing with rate limiting
-          let summary = 'Summary unavailable';
-          let tags = 'Tags unavailable';
-          let category = 'Technology';
-
-          const content = item.contentSnippet || item.title || '';
-
-          try {
-            const summaryResponse = await summarizeContent(content);
-            summary = summaryResponse.content;
-            console.log(`Generated summary using ${summaryResponse.provider}`);
-          } catch (error) {
-            console.error('Error summarizing content:', error);
-          }
-
-          try {
-            const tagsResponse = await generateTags(content);
-            tags = tagsResponse.content;
-            console.log(`Generated tags using ${tagsResponse.provider}`);
-          } catch (error) {
-            console.error('Error generating tags:', error);
-          }
-
-          try {
-            const categoryResponse = await categorizeContent(content);
-            category = categoryResponse.content;
-            console.log(`Categorized content using ${categoryResponse.provider}`);
-          } catch (error) {
-            console.error('Error categorizing content:', error);
-          }
-
-          // Insert article into database
-          const { error: insertError } = await supabase
+          // Insert article with placeholder AI content (will be updated by queue)
+          const { data: article, error: insertError } = await db
             .from('articles')
             .insert({
-              title: item.title || 'Untitled',
-              content: content,
-              summary: summary,
-              url: item.link || '',
+              title,
+              content: content.substring(0, 500) + '...', // Truncated original content
+              rewritten_content: 'Processing...', // Will be updated by queue
+              summary: 'Processing...', // Will be updated by queue
+              tags: ['processing'],
+              category: 'Processing',
+              url: link,
               affiliate_url: affiliateUrl,
               image_url: imageUrl,
               source: feed.name,
-              category: category,
-              tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0),
-              published_at: item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString(),
-            });
+              published_at: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
+              created_at: new Date().toISOString(),
+              ai_operations_queued: true
+            })
+            .select()
+            .single();
 
           if (insertError) {
             console.error('Error inserting article:', insertError);
+            errors.push(`Failed to insert article: ${title}`);
             continue;
           }
 
-          console.log(`Processed article: ${item.title}`);
-          processedCount++;
+          console.log(`Processed article: ${title}`);
+          processed++;
 
         } catch (error) {
-          console.error('Error processing article:', error);
+          console.error(`Error processing article:`, error);
+          errors.push(`Failed to process article: ${error}`);
         }
       }
+
     } catch (error) {
       console.error(`Error fetching feed ${feed.name}:`, error);
+      errors.push(`Failed to fetch feed ${feed.name}: ${error}`);
     }
   }
 
-  console.log(`Successfully processed ${processedCount} articles`);
-  return processedCount;
+  console.log(`Successfully processed ${processed} articles`);
+  return { processed, errors };
 } 

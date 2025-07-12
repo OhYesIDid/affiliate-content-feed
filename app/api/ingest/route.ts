@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchAndProcessFeeds, RSS_FEEDS } from '@/lib/rss';
 import { rateLimiter, MISTRAL_RATE_LIMIT, OPENAI_RATE_LIMIT } from '@/lib/rate-limiter';
+import { db } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  let processedCount = 0;
+  let errorCount = 0;
+  let status: 'success' | 'error' | 'partial' = 'success';
+  let message = '';
+  let details = '';
+
   try {
     console.log('Starting content ingestion...');
     
@@ -12,7 +20,23 @@ export async function POST(request: NextRequest) {
     
     console.log(`Rate limits - Mistral: ${mistralRemaining}/${MISTRAL_RATE_LIMIT.MAX_REQUESTS}, OpenAI: ${openaiRemaining}/${OPENAI_RATE_LIMIT.MAX_REQUESTS}`);
     
-    const processedCount = await fetchAndProcessFeeds();
+    processedCount = await fetchAndProcessFeeds();
+    message = `Successfully processed ${processedCount} new articles`;
+    
+    // Log successful ingestion
+    try {
+      await db.createIngestionLog({
+        status,
+        processedCount,
+        errorCount,
+        duration: Date.now() - startTime,
+        message,
+        details: `Rate limits - Mistral: ${mistralRemaining}/${MISTRAL_RATE_LIMIT.MAX_REQUESTS}, OpenAI: ${openaiRemaining}/${OPENAI_RATE_LIMIT.MAX_REQUESTS}`
+      });
+    } catch (logError) {
+      console.error('Failed to log ingestion:', logError);
+      // Don't fail the entire request if logging fails
+    }
     
     return NextResponse.json({
       success: true,
@@ -32,10 +56,30 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error in ingest API:', error);
+    
+    errorCount = 1;
+    status = 'error';
+    message = 'Content ingestion failed';
+    details = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Log failed ingestion
+    try {
+      await db.createIngestionLog({
+        status,
+        processedCount,
+        errorCount,
+        duration: Date.now() - startTime,
+        message,
+        details
+      });
+    } catch (logError) {
+      console.error('Failed to log ingestion error:', logError);
+    }
+    
     return NextResponse.json(
       { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: details,
         rateLimits: {
           mistral: {
             remaining: rateLimiter.getRemaining('mistral-api', MISTRAL_RATE_LIMIT.MAX_REQUESTS),

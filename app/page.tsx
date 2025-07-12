@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Search, Filter, Bookmark, Heart, Share2, ExternalLink, Mail, TrendingUp, Tag, RefreshCw, Settings } from 'lucide-react'
+import { Search, Filter, Bookmark, Heart, Share2, ExternalLink, Mail, TrendingUp, Tag, Settings } from 'lucide-react'
 import { Article, SearchFilters, SortOption } from '../types'
 import { mockArticles } from '../data/mockArticles'
 import toast from 'react-hot-toast'
@@ -15,7 +15,6 @@ export default function HomePage() {
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [showFilters, setShowFilters] = useState(false)
-  const [ingesting, setIngesting] = useState(false)
 
   const categories = [
     { id: 'all', name: 'All', color: 'bg-secondary-100 text-secondary-800' },
@@ -92,35 +91,6 @@ export default function HomePage() {
     }
   }
 
-  const handleIngestContent = async () => {
-    try {
-      setIngesting(true)
-      toast.loading('Ingesting new content...', { id: 'ingest' })
-      
-      const response = await fetch('/api/ingest', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to ingest content')
-      }
-      
-      const result = await response.json()
-      toast.success(`Successfully processed ${result.processedCount} new articles!`, { id: 'ingest' })
-      
-      // Refresh the articles list
-      await fetchArticles()
-    } catch (error) {
-      console.error('Error ingesting content:', error)
-      toast.error('Failed to ingest content. Please try again.', { id: 'ingest' })
-    } finally {
-      setIngesting(false)
-    }
-  }
-
   const getAffiliateProgram = (url: string): string => {
     if (!url) return '';
     
@@ -175,14 +145,6 @@ export default function HomePage() {
             </div>
             
             <div className="flex items-center space-x-4">
-              <button 
-                onClick={handleIngestContent}
-                disabled={ingesting}
-                className="btn-primary flex items-center space-x-2"
-              >
-                <RefreshCw className={`w-4 h-4 ${ingesting ? 'animate-spin' : ''}`} />
-                <span>{ingesting ? 'Ingesting...' : 'Ingest Content'}</span>
-              </button>
               <button className="btn-outline flex items-center space-x-2">
                 <Mail className="w-4 h-4" />
                 <span>Subscribe</span>

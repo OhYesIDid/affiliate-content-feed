@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
 
     const articles = await db.getArticles(filters, sort, order as 'desc' | 'asc')
     
-    // Apply pagination with max limit of 12
-    const maxLimit = Math.min(limit, 12)
+    // Apply pagination - allow higher limits for admin pages
+    const maxLimit = limit > 100 ? limit : Math.min(limit, 12) // Allow higher limits for admin
     const paginatedArticles = articles.slice(offset, offset + maxLimit)
     
     return NextResponse.json({

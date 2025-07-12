@@ -13,6 +13,7 @@ export const TABLES = {
   LIKES: 'likes',
   DIGEST_SUBSCRIPTIONS: 'digest_subscriptions',
   RSS_FEEDS: 'rss_feeds',
+  INGESTION_LOGS: 'content_ingestion_logs',
 } as const;
 
 // Helper functions for database operations
@@ -189,5 +190,68 @@ export const db = {
     
     if (error) throw error;
     return data || [];
+  },
+
+  // Ingestion Logs
+  async createIngestionLog(log: {
+    status: 'success' | 'error' | 'partial';
+    processedCount: number;
+    errorCount: number;
+    duration: number;
+    message: string;
+    details?: string;
+  }) {
+    try {
+      // Try PostgREST first
+      const { data, error } = await supabase
+        .from(TABLES.INGESTION_LOGS)
+        .insert({
+          ...log,
+          timestamp: new Date().toISOString(),
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (postgrestError) {
+      console.log('PostgREST failed, trying direct SQL...');
+      
+      // Fallback to direct SQL
+      const { data: sqlData, error: sqlError } = await supabase.rpc('create_ingestion_log', {
+        p_status: log.status,
+        p_processed_count: log.processedCount,
+        p_error_count: log.errorCount,
+        p_duration: log.duration,
+        p_message: log.message,
+        p_details: log.details || null
+      });
+      
+      if (sqlError) throw sqlError;
+      return sqlData;
+    }
+  },
+
+  async getIngestionLogs(limit: number = 20) {
+    const { data, error } = await supabase
+      .from(TABLES.INGESTION_LOGS)
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .limit(limit);
+    
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getLatestIngestionLog() {
+    const { data, error } = await supabase
+      .from(TABLES.INGESTION_LOGS)
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
+    return data;
   },
 }; 

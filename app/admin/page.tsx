@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { RefreshCw, TrendingUp, Database, Activity, Settings, BarChart3, Users, FileText, LogOut, User } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
+import { performanceMonitor } from '@/lib/performance';
 
 interface SystemStats {
   totalArticles: number
@@ -21,6 +22,18 @@ interface SystemStats {
       timeUntilReset: number
     }
   }
+  ingestionLogs: IngestionLogEntry[]
+}
+
+interface IngestionLogEntry {
+  id: string
+  timestamp: string
+  status: 'success' | 'error' | 'partial'
+  processedCount: number
+  errorCount: number
+  duration: number
+  message: string
+  details?: string
 }
 
 interface AdminUser {
@@ -30,7 +43,7 @@ interface AdminUser {
 }
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<SystemStats | null>(null)
+  const [performanceStats, setPerformanceStats] = useState<any>(null);
   const [loading, setLoading] = useState(true)
   const [ingesting, setIngesting] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -42,6 +55,25 @@ export default function AdminDashboard() {
     fetchStats()
     fetchUser()
   }, [])
+
+  // Add performance monitoring
+  useEffect(() => {
+    const fetchPerformanceStats = async () => {
+      try {
+        const response = await fetch('/api/admin/performance');
+        const data = await response.json();
+        if (data.success) {
+          setPerformanceStats(data.stats);
+        }
+      } catch (error) {
+        console.error('Error fetching performance stats:', error);
+      }
+    };
+
+    fetchPerformanceStats();
+    const interval = setInterval(fetchPerformanceStats, 30000); // Update every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchUser = async () => {
     try {
@@ -67,11 +99,20 @@ export default function AdminDashboard() {
       const statsResponse = await fetch('/api/articles')
       const articlesData = await statsResponse.json()
       
+      // Fetch ingestion logs
+      const logsResponse = await fetch('/api/admin/ingestion-logs?limit=10')
+      const logsData = await logsResponse.json()
+      const ingestionLogs = logsData.success ? logsData.logs : []
+      
+      // Get last ingestion time from the most recent log
+      const lastIngestion = ingestionLogs.length > 0 ? ingestionLogs[0].timestamp : null
+      
       setStats({
-        totalArticles: articlesData.articles?.length || 0,
+        totalArticles: articlesData.total || 0,
         totalSources: 6, // Hardcoded for now based on RSS_FEEDS
-        lastIngestion: new Date().toISOString(), // You can store this in DB later
-        rateLimits
+        lastIngestion: lastIngestion || new Date().toISOString(), // Use latest log or current time
+        rateLimits,
+        ingestionLogs
       })
     } catch (error) {
       console.error('Error fetching stats:', error)
@@ -195,9 +236,58 @@ export default function AdminDashboard() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Performance Monitoring Section */}
+        {performanceStats && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Performance Monitoring</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {performanceStats.ai && (
+                <div className="bg-white p-4 rounded-lg shadow">
+                  <h3 className="text-sm font-medium text-gray-500">AI Processing</h3>
+                  <div className="mt-2">
+                    <p className="text-2xl font-bold text-gray-900">{performanceStats.ai.successRate.toFixed(1)}%</p>
+                    <p className="text-sm text-gray-600">Success Rate</p>
+                    <p className="text-sm text-gray-600">Avg: {performanceStats.ai.avgDuration.toFixed(0)}ms</p>
+                  </div>
+                </div>
+              )}
+              
+              {performanceStats.images && (
+                <div className="bg-white p-4 rounded-lg shadow">
+                  <h3 className="text-sm font-medium text-gray-500">Image Fetching</h3>
+                  <div className="mt-2">
+                    <p className="text-2xl font-bold text-gray-900">{performanceStats.images.successRate.toFixed(1)}%</p>
+                    <p className="text-sm text-gray-600">Success Rate</p>
+                    <p className="text-sm text-gray-600">Avg: {performanceStats.images.avgDuration.toFixed(0)}ms</p>
+                  </div>
+                </div>
+              )}
+              
+              {performanceStats.database && (
+                <div className="bg-white p-4 rounded-lg shadow">
+                  <h3 className="text-sm font-medium text-gray-500">Database Operations</h3>
+                  <div className="mt-2">
+                    <p className="text-2xl font-bold text-gray-900">{performanceStats.database.successRate.toFixed(1)}%</p>
+                    <p className="text-sm text-gray-600">Success Rate</p>
+                    <p className="text-sm text-gray-600">Avg: {performanceStats.database.avgDuration.toFixed(0)}ms</p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="bg-white p-4 rounded-lg shadow">
+                <h3 className="text-sm font-medium text-gray-500">Recent Errors</h3>
+                <div className="mt-2">
+                  <p className="text-2xl font-bold text-gray-900">{performanceStats.recentErrors?.length || 0}</p>
+                  <p className="text-sm text-gray-600">Last 5 Errors</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="card">
+          <div className="card cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/admin/articles')}>
             <div className="flex items-center">
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <FileText className="w-6 h-6 text-blue-600" />
@@ -205,6 +295,7 @@ export default function AdminDashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-secondary-600">Total Articles</p>
                 <p className="text-2xl font-bold text-secondary-900">{stats?.totalArticles}</p>
+                <p className="text-xs text-secondary-500 mt-1">Click to view all articles</p>
               </div>
             </div>
           </div>
@@ -272,6 +363,46 @@ export default function AdminDashboard() {
               <RefreshCw className={`w-4 h-4 ${ingesting ? 'animate-spin' : ''}`} />
               <span>{ingesting ? 'Ingesting Content...' : 'Ingest New Content'}</span>
             </button>
+
+            {/* Ingestion Log */}
+            <div className="mt-8">
+              <h3 className="text-lg font-medium text-secondary-900 mb-4">Recent Ingestion Runs</h3>
+              
+              {stats?.ingestionLogs && stats.ingestionLogs.length > 0 ? (
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {stats.ingestionLogs.map((log) => (
+                    <div key={log.id} className="flex items-center justify-between p-3 bg-secondary-50 rounded-lg border border-secondary-200">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-3 h-3 rounded-full ${
+                          log.status === 'success' ? 'bg-green-500' :
+                          log.status === 'error' ? 'bg-red-500' :
+                          'bg-yellow-500'
+                        }`} />
+                        <div>
+                          <p className="text-sm font-medium text-secondary-900">{log.message}</p>
+                          <p className="text-xs text-secondary-600">
+                            {new Date(log.timestamp).toLocaleString()} • 
+                            {log.processedCount} processed • 
+                            {log.errorCount} errors • 
+                            {log.duration}ms
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-xs text-secondary-500">
+                        {log.status === 'success' ? '✓ Success' :
+                         log.status === 'error' ? '✗ Error' :
+                         '⚠ Partial'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-secondary-500">
+                  <p>No ingestion runs recorded yet.</p>
+                  <p className="text-sm">Run your first ingestion to see logs here.</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

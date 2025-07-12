@@ -92,6 +92,6 @@ export const MISTRAL_RATE_LIMIT = {
 };
 
 export const OPENAI_RATE_LIMIT = {
-  MAX_REQUESTS: 10,
+  MAX_REQUESTS: 0,
   WINDOW_MS: 60 * 1000 // 1 minute
 }; 
