@@ -7,7 +7,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const mistral = new Mistral(process.env.MISTRAL_API_KEY || '');
+const mistral = new Mistral({ apiKey: process.env.MISTRAL_API_KEY || '' });
 
 // Rate limit keys
 const MISTRAL_KEY = 'mistral-api';
@@ -34,14 +34,20 @@ Summary:`;
   if (process.env.MISTRAL_API_KEY) {
     if (rateLimiter.isAllowed(MISTRAL_KEY, MISTRAL_RATE_LIMIT.MAX_REQUESTS, MISTRAL_RATE_LIMIT.WINDOW_MS)) {
       try {
-        const response = await mistral.chat({
+        const response = await mistral.chat.complete({
           model: 'mistral-large-latest',
           messages: [{ role: 'user', content: prompt }],
           maxTokens: 150,
         });
-
+        const content = Array.isArray(response.choices[0]?.message?.content)
+          ? response.choices[0]?.message?.content.map(c =>
+              typeof c === 'string' ? c : ''
+            ).join(' ')
+          : (typeof response.choices[0]?.message?.content === 'string'
+              ? response.choices[0]?.message?.content
+              : 'Summary unavailable');
         return {
-          content: response.choices[0]?.message?.content || 'Summary unavailable',
+          content,
           provider: 'mistral',
           usage: {
             prompt_tokens: response.usage?.promptTokens || 0,
@@ -97,14 +103,20 @@ Tags:`;
   if (process.env.MISTRAL_API_KEY) {
     if (rateLimiter.isAllowed(MISTRAL_KEY, MISTRAL_RATE_LIMIT.MAX_REQUESTS, MISTRAL_RATE_LIMIT.WINDOW_MS)) {
       try {
-        const response = await mistral.chat({
+        const response = await mistral.chat.complete({
           model: 'mistral-large-latest',
           messages: [{ role: 'user', content: prompt }],
           maxTokens: 100,
         });
-
+        const content = Array.isArray(response.choices[0]?.message?.content)
+          ? response.choices[0]?.message?.content.map(c =>
+              typeof c === 'string' ? c : ''
+            ).join(' ')
+          : (typeof response.choices[0]?.message?.content === 'string'
+              ? response.choices[0]?.message?.content
+              : 'Tags unavailable');
         return {
-          content: response.choices[0]?.message?.content || 'Tags unavailable',
+          content,
           provider: 'mistral',
           usage: {
             prompt_tokens: response.usage?.promptTokens || 0,
@@ -160,14 +172,20 @@ Category:`;
   if (process.env.MISTRAL_API_KEY) {
     if (rateLimiter.isAllowed(MISTRAL_KEY, MISTRAL_RATE_LIMIT.MAX_REQUESTS, MISTRAL_RATE_LIMIT.WINDOW_MS)) {
       try {
-        const response = await mistral.chat({
+        const response = await mistral.chat.complete({
           model: 'mistral-large-latest',
           messages: [{ role: 'user', content: prompt }],
           maxTokens: 50,
         });
-
+        const content = Array.isArray(response.choices[0]?.message?.content)
+          ? response.choices[0]?.message?.content.map(c =>
+              typeof c === 'string' ? c : ''
+            ).join(' ')
+          : (typeof response.choices[0]?.message?.content === 'string'
+              ? response.choices[0]?.message?.content
+              : 'Category unavailable');
         return {
-          content: response.choices[0]?.message?.content || 'Category unavailable',
+          content,
           provider: 'mistral',
           usage: {
             prompt_tokens: response.usage?.promptTokens || 0,
