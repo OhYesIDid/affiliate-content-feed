@@ -1,8 +1,8 @@
 import Parser from 'rss-parser';
 import { db } from './supabase';
 import { rewriteArticle, summarizeContent, generateTags, categorizeContent } from './ai-providers';
-import { affiliate } from './affiliate';
-import { imageService } from './image-providers';
+import { affiliate, generateAffiliateLink } from './affiliate';
+import { imageService, getRelevantImage } from './image-providers';
 import { performanceMonitor, measurePerformance } from './performance';
 import { queueAI } from './queue';
 
@@ -86,7 +86,7 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
             // Extract image from content or use placeholder
             let imageUrl = item['media:content']?.['$']?.url || 
                           item['media:thumbnail']?.['$']?.url ||
-                          extractImageFromContent(item.content) ||
+                          extractImageFromContent(item.content || '') ||
                           await getRelevantImage(title, 'technology');
 
             // Generate affiliate link
@@ -166,4 +166,14 @@ export async function fetchAndProcessFeeds(): Promise<{ processed: number; error
   }
 
   return { processed, errors };
+} 
+
+function extractImageFromContent(content: string): string | null {
+  try {
+    // Simple regex to extract first image from HTML content
+    const imgMatch = content.match(/<img[^>]+src="([^"]+)"/i);
+    return imgMatch ? imgMatch[1] : null;
+  } catch (error) {
+    return null;
+  }
 } 
